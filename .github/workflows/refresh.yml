@@ -1,0 +1,23 @@
+name: Refresh live snapshot
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 15 minutes, weekdays, during US market hours (13:30-20:00 UTC approx)
+    - cron: '*/15 13-20 * * 1-5'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python refresh.py
+      - run: |
+          git config user.name "YEET Live refresher"
+          git config user.email "yeet-live@users.noreply.github.com"
+          git add data/live_snapshot.json
+          git diff --cached --quiet || (git commit -m "Refresh live snapshot" && git push)
