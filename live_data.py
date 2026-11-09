@@ -17,6 +17,11 @@ Unusual-activity heuristic (public chain only):
   premium = volume * lastPrice * 100
   unusual if volume >= 100 and premium >= $10,000 and
   (volume >= openInterest  OR  volume >= 500  OR  premium >= $100,000)
+
+Bid/ask: the chain's bid and ask are recorded per contract so the
+spread position of the last price can be read as a lean (near ask =
+likely bought, near bid = likely sold). That is a guess from a
+~15-min delayed snapshot, not a fill — Yahoo publishes no trade tape.
 """
 from __future__ import annotations
 
@@ -155,6 +160,11 @@ def fetch_ticker(symbol: str) -> dict:
                 # otherwise dominate the premium ranking.
                 if spot and not (0.5 * spot <= strike <= 1.5 * spot):
                     continue
+                bid = _safe_float(r.get("bid"))
+                ask = _safe_float(r.get("ask"))
+                spread_pos = None
+                if bid and ask and ask > bid:
+                    spread_pos = round(min(1.0, max(0.0, (price - bid) / (ask - bid))), 2)
                 contract = {
                     "underlying_symbol": symbol, "ticker": symbol,
                     "date": date.today().isoformat(),
@@ -162,6 +172,11 @@ def fetch_ticker(symbol: str) -> dict:
                     "type": kind, "side": None,  # Yahoo has no side; never invent one
                     "volume": vol, "open_interest": oi,
                     "premium": round(premium, 2), "last_price": round(price, 2),
+                    "bid": round(bid, 2) if bid else None,
+                    "ask": round(ask, 2) if ask else None,
+                    # Last-price position in the bid/ask spread (0=bid, 1=ask):
+                    # a lean only, never a fill.
+                    "spread_position": spread_pos,
                     "implied_volatility": _safe_float(r.get("impliedVolatility")),
                     "vol_oi": round(vol / max(oi, 1), 2),
                     "moneyness": ("ITM" if spot and (

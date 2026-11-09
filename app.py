@@ -113,10 +113,12 @@ def contract_table(rows: list[dict]):
     df = pd.DataFrame(rows)
     cols = [c for c in ["ticker", "expiry", "strike", "type", "moneyness",
                         "volume", "open_interest", "vol_oi", "last_price",
+                        "bid", "ask", "spread_position",
                         "premium", "implied_volatility", "days_to_expiry"]
             if c in df.columns]
     st.dataframe(df[cols], hide_index=True, use_container_width=True)
     st.caption("Side is not shown: Yahoo does not publish buy/sell side, so it is never invented. "
+               "Spread position is the last price's place between bid (0) and ask (1) — a lean, not a fill. "
                "Premium = volume × last price × 100.")
 
 
