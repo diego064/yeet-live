@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   schedule:
     # Every 15 minutes, weekdays, during US market hours (13:30-20:00 UTC approx)
+    # Re-registered 2026-11-10: the schedule had only ever fired once on its own;
+    # re-committing this file to re-register it with GitHub's scheduler.
     - cron: '*/15 13-20 * * 1-5'
 permissions:
   contents: write
