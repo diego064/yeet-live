@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -36,6 +36,9 @@ DATA = ROOT / "data"
 SNAPSHOT = DATA / "live_snapshot.json"
 EVENTS_FILE = DATA / "events.json"
 WATCHLIST_FILE = DATA / "watchlist.json"
+BIG_CONTRACTS_FILE = DATA / "big_contracts.json"
+BIG_CONTRACT_MIN_PREMIUM = 1_000_000  # only track contracts at/above this premium
+BIG_CONTRACT_KEEP_DAYS = 30  # drop records not seen for this long
 
 CACHE_TTL_SECONDS = 300  # 5 minutes, Yahoo options refresh at this pace anyway
 MAX_EXPIRIES_PER_TICKER = 3
@@ -264,6 +267,86 @@ def build_snapshot(tickers: list[str] | None = None) -> dict:
 def save_snapshot(snapshot: dict) -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     SNAPSHOT.write_text(json.dumps(snapshot, indent=2))
+
+
+def load_big_contracts() -> list[dict]:
+    """Persistent log of big contracts: when each one first appeared.
+
+    Yahoo publishes no announcement time for an options contract — the
+    chain only shows today's volume / open interest. So "first seen" is
+    the first refresh where the contract crossed BIG_CONTRACT_MIN_PREMIUM:
+    the closest free data gets to an announcement date. History starts
+    the day this log was created; anything already big before then shows
+    that day as its first seen date.
+    """
+    try:
+        records = json.loads(BIG_CONTRACTS_FILE.read_text())
+        return [r for r in records if isinstance(r, dict) and r.get("key")]
+    except Exception:
+        return []
+
+
+def save_big_contracts(records: list[dict]) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    BIG_CONTRACTS_FILE.write_text(json.dumps(records, indent=2))
+
+
+def contract_key(c: dict) -> str:
+    return f"{c.get('ticker')}|{c.get('expiry')}|{c.get('strike')}|{c.get('type')}"
+
+
+def merge_big_contracts(snapshot: dict, as_of: str | None = None,
+                        min_premium: float = BIG_CONTRACT_MIN_PREMIUM) -> list[dict]:
+    """Fold a fresh snapshot into the big-contracts log and save it.
+
+    New contracts get first_seen = as_of (today by default). Returning
+    contracts keep their first_seen and update last_seen, peak premium
+    and latest size. Records unseen for BIG_CONTRACT_KEEP_DAYS drop off.
+    """
+    as_of = as_of or date.today().isoformat()
+    cutoff = (date.fromisoformat(as_of)
+              - timedelta(days=BIG_CONTRACT_KEEP_DAYS)).isoformat()
+    records = {r["key"]: r for r in load_big_contracts()
+               if r.get("last_seen", "") >= cutoff}
+    for c in snapshot.get("contracts", []):
+        premium = _safe_float(c.get("premium"))
+        if premium < min_premium:
+            continue
+        key = contract_key(c)
+        ticker = str(c.get("ticker", ""))
+        rec = records.get(key)
+        if rec is None:
+            records[key] = {
+                "key": key, "ticker": ticker, "expiry": str(c.get("expiry")),
+                "strike": _safe_float(c.get("strike")),
+                "type": c.get("type"), "first_seen": as_of,
+                "first_premium": round(premium, 2),
+                "last_seen": as_of, "peak_premium": round(premium, 2),
+                "peak_date": as_of, "days_seen": 1,
+                "premium": round(premium, 2),
+                "volume": _safe_int(c.get("volume")),
+                "open_interest": _safe_int(c.get("open_interest")),
+                "last_price": _safe_float(c.get("last_price")),
+                "source": "Yahoo Finance options chain",
+                "url": f"https://finance.yahoo.com/quote/{ticker}/options",
+            }
+        else:
+            rec["last_seen"] = as_of
+            rec["premium"] = round(premium, 2)
+            rec["volume"] = _safe_int(c.get("volume"))
+            rec["open_interest"] = _safe_int(c.get("open_interest"))
+            rec["last_price"] = _safe_float(c.get("last_price"))
+            if premium > rec.get("peak_premium", 0):
+                rec["peak_premium"] = round(premium, 2)
+                rec["peak_date"] = as_of
+            try:
+                rec["days_seen"] = (date.fromisoformat(as_of)
+                                    - date.fromisoformat(rec["first_seen"])).days + 1
+            except Exception:
+                pass
+    out = sorted(records.values(), key=lambda r: r.get("peak_premium", 0), reverse=True)
+    save_big_contracts(out)
+    return out
 
 
 def load_snapshot(max_age_seconds: int = CACHE_TTL_SECONDS) -> dict | None:

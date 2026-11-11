@@ -11,17 +11,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from live_data import build_snapshot, load_watchlist, save_snapshot
+from live_data import build_snapshot, load_watchlist, merge_big_contracts, save_snapshot
 
 
 def main() -> int:
     tickers = load_watchlist()
     snap = build_snapshot(tickers)
     save_snapshot(snap)
+    big = merge_big_contracts(snap)
     ok = snap["tickers_ok"]
     print(f"Refreshed {snap['fetched_at']}: {ok}/{snap['tickers_scanned']} tickers OK, "
           f"{len(snap['contracts'])} unusual contracts, "
-          f"${snap['total_call_premium']:,.0f} call / ${snap['total_put_premium']:,.0f} put premium.")
+          f"${snap['total_call_premium']:,.0f} call / ${snap['total_put_premium']:,.0f} put premium. "
+          f"Big-contracts log: {len(big)} tracked.")
     if snap.get("errors"):
         print("Errors:", snap["errors"])
     return 0

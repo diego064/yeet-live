@@ -26,7 +26,7 @@ import pandas as pd
 import streamlit as st
 
 from live_data import (
-    get_snapshot, load_events, load_snapshot, load_watchlist,
+    get_snapshot, load_big_contracts, load_events, load_snapshot, load_watchlist,
     match_events, pari_percentile, save_events, wari_score,
 )
 
@@ -260,8 +260,8 @@ else:
     st.info("No unusual flow in the latest snapshot yet. Check back after the next refresh.")
 
 # ---------- tabs ----------
-tab_today, tab_flow, tab_events, tab_mood, tab_semis, tab_memes, tab_about = st.tabs(
-    ["Today", "Big flow", "Events", "Market mood", "Semis & China", "Memes", "About"])
+tab_today, tab_flow, tab_big, tab_events, tab_mood, tab_semis, tab_memes, tab_about = st.tabs(
+    ["Today", "Big flow", "Big contracts", "Events", "Market mood", "Semis & China", "Memes", "About"])
 
 with tab_today:
     st.subheader("Today at a glance")
@@ -297,6 +297,44 @@ with tab_flow:
     for c in top[:6]:
         setup_card(c)
     details_table(top[:30], "Show the full table (top 30)")
+
+with tab_big:
+    st.subheader("Big contracts")
+    st.write("Every contract that crossed $1,000,000 in premium, with the date it "
+             "first showed up — so you can order by amount and by date, and see "
+             "whether a big position is new or has been sitting there for days.")
+    big = load_big_contracts()
+    if not big:
+        st.info("No big contracts tracked yet. The log builds from the next refresh — "
+                "check back after the next 15-minute update.")
+    else:
+        order = st.selectbox("Order by", ["Biggest amount first", "Newest first seen",
+                                           "Oldest first seen", "Most recently seen"])
+        rows = list(big)
+        if order == "Biggest amount first":
+            rows.sort(key=lambda r: r.get("peak_premium", 0), reverse=True)
+        elif order == "Newest first seen":
+            rows.sort(key=lambda r: r.get("first_seen", ""), reverse=True)
+        elif order == "Oldest first seen":
+            rows.sort(key=lambda r: r.get("first_seen", ""))
+        else:
+            rows.sort(key=lambda r: r.get("last_seen", ""), reverse=True)
+        df = pd.DataFrame(rows)
+        df["Bet"] = df["type"].replace({"C": "Up (call)", "P": "Down (put)"})
+        df = df.rename(columns={"first_seen": "First seen", "ticker": "Ticker",
+                                "strike": "Strike", "expiry": "Expires",
+                                "premium": "Premium now ($)",
+                                "peak_premium": "Peak premium ($)",
+                                "last_seen": "Last seen",
+                                "days_seen": "Days seen"})
+        cols = ["First seen", "Ticker", "Bet", "Strike", "Expires", "Premium now ($)",
+                "Peak premium ($)", "Last seen", "Days seen"]
+        st.dataframe(df[[c for c in cols if c in df.columns]], hide_index=True, width="stretch")
+        st.caption("Source: Yahoo Finance options chain — the only free source. Yahoo "
+                   "publishes no announcement time for a contract, so \"first seen\" is "
+                   "the first refresh where it crossed $1M in premium. History starts "
+                   "Nov 11, 2026, so anything already big before then shows Nov 11. "
+                   "Contracts not seen for 30 days drop off the log.")
 
 with tab_events:
     st.subheader("Events")
