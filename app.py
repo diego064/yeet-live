@@ -35,30 +35,30 @@ st.set_page_config(page_title="Diego's AI Money Magnet", page_icon="M", layout="
 
 st.markdown("""
 <style>
-.stApp{background:linear-gradient(145deg,#0f212f,#0d242b);color:#eef2ee}
-h1{color:#8ee63f;font-size:2.2rem!important}
-h2{color:#7fe3b0;font-size:1.4rem!important}
-h3{color:#d8e8d8;font-size:1.15rem!important}
+.stApp{background:linear-gradient(145deg,#0a1a2b,#0b2233);color:#eef2ee}
+h1{color:#5eead4;font-size:2.2rem!important}
+h2{color:#7dd3fc;font-size:1.4rem!important}
+h3{color:#d6e8f0;font-size:1.15rem!important}
 .read-card{padding:24px 26px;border-radius:20px;margin:10px 0 18px;
-  background:linear-gradient(130deg,#1b3a38,#122e32);
-  border:1px solid #ffffff22;border-left:6px solid #3ddc97}
+  background:linear-gradient(130deg,#16324a,#0f2436);
+  border:1px solid #ffffff22;border-left:6px solid #2dd4bf}
 .read-card.down{border-left-color:#ff7a7a}
 .read-card.mixed{border-left-color:#f4d47c}
 .read-card h2{margin:0 0 6px;font-size:1.6rem!important;color:#eef2ee!important}
-.read-card p{color:#c3d4c6;font-size:15px;line-height:1.6;margin:6px 0}
+.read-card p{color:#c3d4e2;font-size:15px;line-height:1.6;margin:6px 0}
 .setup-card{padding:18px 20px;border-radius:16px;margin:10px 0;
-  background:linear-gradient(130deg,#17343a,#102630);
+  background:linear-gradient(130deg,#122c3f,#0d1f2e);
   border:1px solid #ffffff18}
 .setup-card h3{margin:2px 0 6px}
 .badge{display:inline-block;border-radius:20px;padding:4px 12px;font-size:12px;
   font-weight:700;margin:4px 6px 4px 0}
-.badge-up{background:#1d4d33;color:#8ff0b3}
+.badge-up{background:#0f3d4a;color:#67e8f9}
 .badge-down{background:#5a2b2b;color:#ffb3b3}
 .badge-mixed{background:#54491f;color:#ffe9a8}
-.badge-plain{background:#243f45;color:#cfe6d6}
-.small{color:#9db4a6;font-size:13px;line-height:1.5}
-.big{font-size:26px;font-weight:800;color:#f4e4a7}
-[data-testid="stMetric"]{background:#142e35;border:1px solid #ffffff16;
+.badge-plain{background:#1c2f45;color:#cfe8f5}
+.small{color:#9db8c8;font-size:13px;line-height:1.5}
+.big{font-size:26px;font-weight:800;color:#7dd3fc}
+[data-testid="stMetric"]{background:#10283a;border:1px solid #ffffff16;
   padding:14px;border-radius:14px}
 </style>
 """, unsafe_allow_html=True)
