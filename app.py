@@ -66,10 +66,17 @@ h3{color:#d8e8d8;font-size:1.15rem!important}
 # ---------- data (cached 5 min, same as before) ----------
 if "watchlist" not in st.session_state:
     st.session_state.watchlist = load_watchlist()
+if "added_tickers" not in st.session_state:
+    st.session_state.added_tickers = []
+
+# A newly added ticker must be scanned right away, not served the
+# cached snapshot: get_snapshot() returns the saved snapshot while it
+# is fresh (<5 min), which used to swallow the new ticker entirely.
+force_refresh = st.session_state.pop("force_refresh_once", False)
 
 with st.spinner("Getting the latest flow…"):
     try:
-        snap = get_snapshot(st.session_state.watchlist)
+        snap = get_snapshot(st.session_state.watchlist, force_refresh=force_refresh)
     except Exception as exc:
         snap = load_snapshot() or {"contracts": [], "tickers": {}, "fetched_at": "never",
                                    "total_call_premium": 0, "total_put_premium": 0,
@@ -175,11 +182,31 @@ with st.sidebar:
     st.caption(f"{len(st.session_state.watchlist)} tickers scanned each refresh.")
     new_ticker = st.text_input("Add a ticker", placeholder="e.g. NVDA").strip().upper().lstrip("$")
     if st.button("Add ticker") and new_ticker:
-        if new_ticker not in st.session_state.watchlist:
+        if new_ticker in st.session_state.watchlist:
+            st.session_state.add_ticker_msg = f"{new_ticker} is already on the list."
+        else:
             st.session_state.watchlist.append(new_ticker)
-            (ROOT / "data" / "watchlist.json").write_text(
-                json.dumps(st.session_state.watchlist, indent=2))
+            st.session_state.added_tickers.append(new_ticker)
+            try:
+                (ROOT / "data" / "watchlist.json").write_text(
+                    json.dumps(st.session_state.watchlist, indent=2))
+            except Exception:
+                pass  # Streamlit Cloud disk is ephemeral; session list still works
+            st.session_state.force_refresh_once = True
+            st.session_state.add_ticker_msg = f"Added {new_ticker} — scanning it now."
         st.rerun()
+    if st.session_state.get("add_ticker_msg"):
+        st.success(st.session_state.add_ticker_msg)
+    if st.session_state.added_tickers:
+        st.caption("Added this visit: " + ", ".join(st.session_state.added_tickers) +
+                   " — these stay until you close or reload the app. "
+                   "To keep one permanently, tell me and I'll add it to the repo list.")
+        last = st.session_state.added_tickers[-1]
+        n = len([c for c in contracts if c.get("ticker") == last])
+        if last in tickers:
+            st.caption(f"{last}: {n} unusual contract(s) in the latest scan." if n
+                       else f"{last}: no unusual flow in the latest scan — "
+                            "it will show up when it has some.")
     if st.button("Refresh now"):
         get_snapshot(st.session_state.watchlist, force_refresh=True)
         st.rerun()
