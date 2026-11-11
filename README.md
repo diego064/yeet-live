@@ -1,4 +1,4 @@
-# YEET Live — free, automated recreation of YEET Terminal
+# Diego's AI Money Magnet — free, automated recreation of YEET Terminal
 
 Same pages as the original (`zeuswasalaker/yeetterminal2`): Prestige, RAMBO,
 PARI, RAMBO Calendar, Index WARI, Orange Swan, MEME LAB, Changelog.
@@ -7,7 +7,7 @@ before the event and expiring on/after it).
 
 What changed — this is the whole point of the recreation:
 
-| Original | YEET Live (this repo) |
+| Original | Diego's AI Money Magnet (this repo) |
 |---|---|
 | Paid Unusual Whales CSV uploads, by hand | Live Yahoo Finance pull, free, no API key |
 | Hand-committed `data/snapshot.json` (Oct 2026) | `data/live_snapshot.json`, refreshed automatically |

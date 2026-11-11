@@ -1,4 +1,4 @@
-"""YEET Live — friendly UI redesign (Nov 10, 2026).
+"""Diego's AI Money Magnet — friendly UI redesign (Nov 10, 2026).
 
 Same data engine as before (live_data.py, Yahoo Finance, free, no key),
 same RAMBO matching rule, same pages underneath. Only the presentation
@@ -31,7 +31,7 @@ from live_data import (
 )
 
 ROOT = Path(__file__).parent
-st.set_page_config(page_title="YEET Live", page_icon="Y", layout="wide")
+st.set_page_config(page_title="Diego's AI Money Magnet", page_icon="M", layout="wide")
 
 st.markdown("""
 <style>
@@ -187,8 +187,8 @@ with st.sidebar:
                "A scheduled refresh also runs every 15 minutes on weekdays.")
 
 # ---------- header: the read, first ----------
-st.title("YEET Live")
-st.caption("Options flow, in plain English. Free data from Yahoo Finance — about 15 minutes delayed.")
+st.title("Diego's AI Money Magnet")
+st.caption("Options flow, in plain English. The flow pulls you toward the big money. Free data from Yahoo Finance — about 15 minutes delayed.")
 
 fetched = snap.get("fetched_at", "?")
 try:
@@ -311,7 +311,7 @@ with tab_events:
                             "end_date": d.isoformat(), "time": "Time not announced",
                             "category": "Investor / analyst", "status": "Confirmed",
                             "earnings_related": False, "url": url,
-                            "summary": summary, "note": "Added in YEET Live."})
+                            "summary": summary, "note": "Added in Diego's AI Money Magnet."})
                 save_events(evs)
                 st.success("Event added.")
                 st.rerun()
@@ -381,7 +381,7 @@ with tab_memes:
 
 with tab_about:
     st.subheader("About this board")
-    st.write("YEET Live is a free recreation of the YEET Terminal. The original was fed by "
+    st.write("Diego's AI Money Magnet is a free recreation of the YEET Terminal. The original was fed by "
              "paid options-flow uploads and a hand-updated snapshot. This version pulls live "
              "options data from Yahoo Finance — free, no key — and refreshes every few minutes.")
     st.markdown("**How to read it**")
