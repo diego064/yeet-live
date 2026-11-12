@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-11-12",
+    "direction": "Bearish divergence",
+    "score": 54,
+    "spy_change_pct": 0.12,
+    "benchmark_call_share": 0.087,
+    "benchmark_call_premium": 119250314.0,
+    "benchmark_put_premium": 1256602434.0
+  }
+]
