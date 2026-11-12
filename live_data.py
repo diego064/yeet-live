@@ -39,6 +39,8 @@ WATCHLIST_FILE = DATA / "watchlist.json"
 BIG_CONTRACTS_FILE = DATA / "big_contracts.json"
 BIG_CONTRACT_MIN_PREMIUM = 1_000_000  # only track contracts at/above this premium
 BIG_CONTRACT_KEEP_DAYS = 30  # drop records not seen for this long
+WARI_HISTORY_FILE = DATA / "wari_history.json"
+WARI_INDEXES = ["SPY", "QQQ", "IWM"]  # the indexes whose prices we track
 
 CACHE_TTL_SECONDS = 300  # 5 minutes, Yahoo options refresh at this pace anyway
 MAX_EXPIRIES_PER_TICKER = 3
@@ -421,6 +423,110 @@ def wari_score(contracts: list[dict], benchmark: set[str] | None = None) -> dict
         "call_premium": round(all_calls, 2),
         "put_premium": round(all_puts, 2),
     }
+
+
+def index_price_track(tickers: dict, contracts: list[dict]) -> list[dict]:
+    """Price tracking for the indexes: spot, previous close, today's move,
+    and each index's own flow lean from its unusual contracts."""
+    out = []
+    for sym in WARI_INDEXES:
+        t = tickers.get(sym, {}) or {}
+        rows = [c for c in contracts if c.get("ticker") == sym]
+        calls = sum(_safe_float(c.get("premium")) for c in rows if c.get("type") == "C")
+        puts = sum(_safe_float(c.get("premium")) for c in rows if c.get("type") == "P")
+        total = calls + puts
+        out.append({
+            "ticker": sym,
+            "spot": _safe_float(t.get("spot")) or None,
+            "prev_close": _safe_float(t.get("prev_close")) or None,
+            "change_pct": t.get("change_pct"),
+            "contracts": len(rows),
+            "call_premium": round(calls, 2), "put_premium": round(puts, 2),
+            "call_share": round(calls / total, 3) if total else None,
+        })
+    return out
+
+
+def _divergence_score(change_pct, call_share) -> dict:
+    """One index (or the benchmark): 0-100, our own documented version.
+
+    Milt's exact WARI formula is paid and unpublished, so this is not a
+    copy of his score — same idea, stated plainly: divergence is when
+    price moves one way and the premium mix leans the other.
+    flow_imbalance = how one-sided the premium mix is (0 = even, 1 = all
+    one side). price_component = size of today's move, a 1%+ move counting
+    full. Score = 100 * (0.6 * flow imbalance + 0.4 * price move), only
+    when price and flow disagree; when they agree the score is 0.
+    A high score is a reason to question the move, never a prediction —
+    hedges can make the flow look defensive when it is not a directional bet.
+    """
+    if change_pct is None or call_share is None:
+        return {"direction": "No read", "score": None}
+    price_up = change_pct >= 0
+    flow_up = call_share >= 0.5
+    if price_up == flow_up:
+        return {"direction": "Agreeing", "score": 0}
+    direction = "Bearish divergence" if price_up else "Bullish divergence"
+    flow_imbalance = abs(call_share - 0.5) * 2
+    price_component = min(abs(change_pct) / 1.0, 1.0)
+    score = round(100 * (0.6 * flow_imbalance + 0.4 * price_component))
+    return {"direction": direction, "score": score}
+
+
+def wari_divergence(contracts: list[dict], tickers: dict) -> dict:
+    """Whale-price divergence, overall (SPY price vs benchmark premium mix)
+    plus one read per index. Overall uses SPY's move against the combined
+    SPY/QQQ/IWM premium mix, as in the original WARI."""
+    tracked = index_price_track(tickers, contracts)
+    bench_calls = sum(t.get("call_premium", 0) for t in tracked)
+    bench_puts = sum(t.get("put_premium", 0) for t in tracked)
+    bench_total = bench_calls + bench_puts
+    bench_share = round(bench_calls / bench_total, 3) if bench_total else None
+    spy = next((t for t in tracked if t["ticker"] == "SPY"), {})
+    overall = _divergence_score(spy.get("change_pct"), bench_share)
+    per_index = []
+    for t in tracked:
+        d = _divergence_score(t.get("change_pct"), t.get("call_share"))
+        per_index.append({**t, **d})
+    return {
+        "direction": overall["direction"], "score": overall["score"],
+        "spy_change_pct": spy.get("change_pct"),
+        "benchmark_call_share": bench_share,
+        "benchmark_call_premium": round(bench_calls, 2),
+        "benchmark_put_premium": round(bench_puts, 2),
+        "indexes": per_index,
+    }
+
+
+def load_wari_history() -> list[dict]:
+    """Daily WARI log: one record per date, updated intraday by refresh.py."""
+    try:
+        records = json.loads(WARI_HISTORY_FILE.read_text())
+        return [r for r in records if isinstance(r, dict) and r.get("date")]
+    except Exception:
+        return []
+
+
+def save_wari_history(records: list[dict]) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    WARI_HISTORY_FILE.write_text(json.dumps(records, indent=2))
+
+
+def log_wari(contracts: list[dict], tickers: dict, as_of: str | None = None) -> list[dict]:
+    """Fold today's divergence read into the daily log (one row per date)."""
+    as_of = as_of or date.today().isoformat()
+    div = wari_divergence(contracts, tickers)
+    records = [r for r in load_wari_history() if r.get("date") != as_of]
+    records.append({
+        "date": as_of, "direction": div["direction"], "score": div["score"],
+        "spy_change_pct": div["spy_change_pct"],
+        "benchmark_call_share": div["benchmark_call_share"],
+        "benchmark_call_premium": div["benchmark_call_premium"],
+        "benchmark_put_premium": div["benchmark_put_premium"],
+    })
+    records.sort(key=lambda r: r["date"])
+    save_wari_history(records)
+    return records
 
 
 def pari_percentile(symbol: str = "SPY", period: str = "5d", interval: str = "5m") -> dict:

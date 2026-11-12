@@ -26,8 +26,9 @@ import pandas as pd
 import streamlit as st
 
 from live_data import (
-    get_snapshot, load_big_contracts, load_events, load_snapshot, load_watchlist,
-    match_events, pari_percentile, save_events, wari_score,
+    get_snapshot, load_big_contracts, load_events, load_snapshot, load_wari_history,
+    load_watchlist, match_events, pari_percentile, save_events, wari_divergence,
+    wari_score,
 )
 
 ROOT = Path(__file__).parent
@@ -269,6 +270,20 @@ with tab_today:
     c1.metric("Money betting up", money(call_p))
     c2.metric("Money betting down", money(put_p))
     c3.metric("SPY today", f"{spy_chg:+.1f}%" if spy_chg is not None else "—")
+    div = wari_divergence(contracts, tickers)
+    if div["score"] is not None:
+        if div["direction"] == "Agreeing":
+            st.info("Whale-price check: the flow and the market agree today — "
+                    f"{div['benchmark_call_share'] * 100:.0f}% of index premium is betting up, "
+                    f"SPY is {div['spy_change_pct']:+.1f}%." if div["spy_change_pct"] is not None else
+                    "Whale-price check: the flow and the market agree today.")
+        else:
+            st.markdown(f"""<div class="read-card {'down' if div['direction'] == 'Bearish divergence' else ''}">
+            <h2>{div['direction']} — {div['score']} out of 100</h2>
+            <p>SPY is {div['spy_change_pct']:+.1f}% today, but only {div['benchmark_call_share'] * 100:.0f}% of the
+            index premium is betting up. Price says one thing, the big money says the other — a reason to
+            question the move, not a prediction. Hedges can make the flow look defensive when it is not a
+            directional bet.</p></div>""", unsafe_allow_html=True)
     st.subheader("The biggest setups")
     for c in top[:3]:
         setup_card(c)
@@ -412,6 +427,34 @@ with tab_mood:
                      "The flow and the market disagree today — the big money is betting one way while the market moves the other.")
     else:
         st.write("No flow to read right now.")
+    st.markdown("**Index prices — what the indexes are doing, next to their flow**")
+    idx_rows = []
+    for t in div["indexes"]:
+        idx_rows.append({
+            "Index": t["ticker"],
+            "Price": f"${t['spot']:,.2f}" if t["spot"] else "—",
+            "Prev close": f"${t['prev_close']:,.2f}" if t["prev_close"] else "—",
+            "Change": f"{t['change_pct']:+.1f}%" if t["change_pct"] is not None else "—",
+            "Betting up": money(t["call_premium"]),
+            "Betting down": money(t["put_premium"]),
+            "Flow betting up": f"{t['call_share'] * 100:.0f}%" if t["call_share"] is not None else "—",
+            "Divergence": f"{t['direction']} {t['score']}" if t["score"] is not None else t["direction"],
+        })
+    st.dataframe(pd.DataFrame(idx_rows), hide_index=True, width="stretch")
+    st.caption("Prices are Yahoo's latest quote, about 15 minutes delayed. Flow is the "
+               "unusual premium in that index's own contracts.")
+    hist = load_wari_history()
+    if hist:
+        st.markdown("**Recent divergence — the last few days**")
+        hdf = pd.DataFrame(hist[-7:][::-1])
+        hdf = hdf.rename(columns={"date": "Date", "direction": "Read",
+                                  "score": "Score", "spy_change_pct": "SPY change (%)",
+                                  "benchmark_call_share": "Index flow betting up"})
+        hdf["Index flow betting up"] = (hdf["Index flow betting up"] * 100).round(0).astype(str) + "%"
+        st.dataframe(hdf[["Date", "Read", "Score", "SPY change (%)",
+                          "Index flow betting up"]], hide_index=True, width="stretch")
+        st.caption("One row per day, updated on each refresh. A high score is a reason "
+                   "to question the move, never a prediction.")
 
 with tab_semis:
     st.subheader("Semis & China")
