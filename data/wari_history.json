@@ -10,11 +10,11 @@
   },
   {
     "date": "2026-11-13",
-    "direction": "Bearish divergence",
-    "score": 22,
-    "spy_change_pct": 0.16,
-    "benchmark_call_share": 0.371,
-    "benchmark_call_premium": 173777057.0,
-    "benchmark_put_premium": 294925261.0
+    "direction": "Bullish divergence",
+    "score": 38,
+    "spy_change_pct": -0.79,
+    "benchmark_call_share": 0.556,
+    "benchmark_call_premium": 664333545.0,
+    "benchmark_put_premium": 530958955.0
   }
 ]
