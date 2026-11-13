@@ -7,5 +7,14 @@
     "benchmark_call_share": 0.087,
     "benchmark_call_premium": 119250314.0,
     "benchmark_put_premium": 1256602434.0
+  },
+  {
+    "date": "2026-11-13",
+    "direction": "Bearish divergence",
+    "score": 22,
+    "spy_change_pct": 0.16,
+    "benchmark_call_share": 0.371,
+    "benchmark_call_premium": 173777057.0,
+    "benchmark_put_premium": 294925261.0
   }
 ]
