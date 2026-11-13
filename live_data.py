@@ -595,7 +595,10 @@ def index_history(symbols: list[str] | None = None, period: str = "1mo",
             continue
     if frames:
         df = pd.DataFrame(frames).dropna(how="all")
-        df.index = pd.to_datetime(df.index).date
+        # Keep a real DatetimeIndex: plain date objects make Streamlit's
+        # line chart misread the axis (it once drew 1992–2081 with the
+        # lines crushed into a speck), so the chart looked blank.
+        df.index = pd.to_datetime(df.index)
         return df, "yahoo"
     rows = load_price_history()
     if len(rows) >= 2:
