@@ -26,10 +26,15 @@ import pandas as pd
 import streamlit as st
 
 from live_data import (
-    get_snapshot, load_big_contracts, load_events, load_snapshot, load_wari_history,
-    load_watchlist, match_events, pari_percentile, save_events, wari_divergence,
-    wari_score,
+    get_snapshot, index_history, load_big_contracts, load_events, load_snapshot,
+    load_wari_history, load_watchlist, match_events, pari_percentile, save_events,
+    wari_divergence, wari_score,
 )
+
+
+@st.cache_data(ttl=300)
+def _index_history_chart():
+    return index_history()
 
 ROOT = Path(__file__).parent
 st.set_page_config(page_title="Diego's AI Money Magnet", page_icon="M", layout="wide")
@@ -443,6 +448,23 @@ with tab_mood:
     st.dataframe(pd.DataFrame(idx_rows), hide_index=True, width="stretch")
     st.caption("Prices are Yahoo's latest quote, about 15 minutes delayed. Flow is the "
                "unusual premium in that index's own contracts.")
+    st.markdown("**Index price charts — the last month, each index starting at 0%**")
+    price_df, price_src = _index_history_chart()
+    if price_df.empty:
+        st.caption("Price chart unavailable right now — Yahoo's history feed did not "
+                   "answer and the board's own price log is still building. The "
+                   "prices in the table above are still current.")
+    else:
+        st.line_chart(price_df, width="stretch")
+        if price_src == "yahoo":
+            st.caption("Yahoo daily closes, about 15 minutes delayed. Each line starts "
+                       "at 0 so you compare the moves, not the prices — $757 SPY and "
+                       "$278 IWM would never share a chart otherwise.")
+        else:
+            st.caption("From the board's own price log, written every 15 minutes in "
+                       "market hours — Yahoo's history feed was rate-limited, so the "
+                       "chart falls back to this. Each line starts at 0 so you compare "
+                       "the moves, not the prices.")
     hist = load_wari_history()
     if hist:
         st.markdown("**Recent divergence — the last few days**")
@@ -453,8 +475,14 @@ with tab_mood:
         hdf["Index flow betting up"] = (hdf["Index flow betting up"] * 100).round(0).astype(str) + "%"
         st.dataframe(hdf[["Date", "Read", "Score", "SPY change (%)",
                           "Index flow betting up"]], hide_index=True, width="stretch")
-        st.caption("One row per day, updated on each refresh. A high score is a reason "
-                   "to question the move, never a prediction.")
+        st.markdown("**Divergence history — the score day by day**")
+        cdf = pd.DataFrame(hist)
+        cdf["date"] = pd.to_datetime(cdf["date"])
+        cdf = cdf.set_index("date")[["score"]].rename(columns={"score": "Divergence score"})
+        st.line_chart(cdf, width="stretch")
+        st.caption("One point per day, updated on each refresh — the line builds as the "
+                   "log grows. Above 50 is where the watch would flag it. A high score "
+                   "is a reason to question the move, never a prediction.")
 
 with tab_semis:
     st.subheader("Semis & China")

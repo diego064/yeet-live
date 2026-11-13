@@ -529,6 +529,85 @@ def log_wari(contracts: list[dict], tickers: dict, as_of: str | None = None) -> 
     return records
 
 
+PRICE_HISTORY_FILE = DATA / "price_history.json"
+
+
+def load_price_history() -> list[dict]:
+    """The board's own price log: one row per refresh, spot prices for the
+    indexes. Written by refresh.py so the price chart does not depend on
+    Yahoo's history endpoint, which rate-limits (429) from time to time."""
+    try:
+        rows = json.loads(PRICE_HISTORY_FILE.read_text())
+        return [r for r in rows if isinstance(r, dict) and r.get("ts")]
+    except Exception:
+        return []
+
+
+def save_price_history(rows: list[dict]) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    PRICE_HISTORY_FILE.write_text(json.dumps(rows, indent=2))
+
+
+def log_price_history(tickers: dict, ts: str | None = None) -> list[dict]:
+    """Append one price row (spot per index) to the board's own log.
+    Keeps the last 30 days; one row per refresh at most."""
+    ts = ts or datetime.now(timezone.utc).isoformat()
+    rows = [r for r in load_price_history()
+            if r.get("ts", "") >= (datetime.now(timezone.utc)
+                                   - timedelta(days=30)).isoformat()]
+    if rows and rows[-1].get("ts", "")[:16] == ts[:16]:
+        return rows  # same minute as the last row — do not duplicate
+    row = {"ts": ts}
+    for sym in WARI_INDEXES:
+        spot = _safe_float((tickers.get(sym, {}) or {}).get("spot"))
+        if spot:
+            row[sym] = round(spot, 2)
+    if len(row) > 1:
+        rows.append(row)
+        save_price_history(rows)
+    return rows
+
+
+def index_history(symbols: list[str] | None = None, period: str = "1mo",
+                  interval: str = "1d"):
+    """Price history for the index charts: daily closes, normalised so each
+    index starts at 0% — that way the lines compare the moves, not the
+    very different prices ($757 SPY vs $278 IWM). Returns (DataFrame, source)
+    where source is "yahoo", "board log", or "none".
+    Yahoo history is the same free source as the rest of the board, so it
+    is ~15-min delayed and can be rate-limited (429); when it gives nothing,
+    the chart falls back to the board's own price log, which refresh.py
+    writes every 15 minutes in market hours. Either way the caller must
+    handle an empty result instead of crashing the page."""
+    import yfinance as yf
+    import pandas as pd
+
+    symbols = symbols or WARI_INDEXES
+    frames = {}
+    for sym in symbols:
+        try:
+            hist = yf.Ticker(sym).history(period=period, interval=interval)
+            closes = pd.to_numeric(hist["Close"], errors="coerce").dropna()
+            if len(closes) < 2:
+                continue
+            frames[sym] = (closes / float(closes.iloc[0]) - 1) * 100
+        except Exception:
+            continue
+    if frames:
+        df = pd.DataFrame(frames).dropna(how="all")
+        df.index = pd.to_datetime(df.index).date
+        return df, "yahoo"
+    rows = load_price_history()
+    if len(rows) >= 2:
+        df = pd.DataFrame(rows).set_index("ts")
+        df.index = pd.to_datetime(df.index)
+        df = df[[c for c in symbols if c in df.columns]].dropna(how="all")
+        if len(df) >= 2 and len(df.columns):
+            df = (df / df.iloc[0] - 1) * 100
+            return df, "board log"
+    return pd.DataFrame(), "none"
+
+
 def pari_percentile(symbol: str = "SPY", period: str = "5d", interval: str = "5m") -> dict:
     """PARI-style momentum percentile from Yahoo closes only (as in the
     original pari.py): where is the latest close in its own recent range?

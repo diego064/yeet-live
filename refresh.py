@@ -11,7 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from live_data import build_snapshot, load_watchlist, log_wari, merge_big_contracts, save_snapshot
+from live_data import (build_snapshot, load_watchlist, log_price_history,
+                       log_wari, merge_big_contracts, save_snapshot)
 
 
 def main() -> int:
@@ -20,6 +21,7 @@ def main() -> int:
     save_snapshot(snap)
     big = merge_big_contracts(snap)
     wari = log_wari(snap["contracts"], snap["tickers"])
+    log_price_history(snap["tickers"])
     ok = snap["tickers_ok"]
     print(f"Refreshed {snap['fetched_at']}: {ok}/{snap['tickers_scanned']} tickers OK, "
           f"{len(snap['contracts'])} unusual contracts, "
