@@ -16,5 +16,14 @@
     "benchmark_call_share": 0.556,
     "benchmark_call_premium": 664333545.0,
     "benchmark_put_premium": 530958955.0
+  },
+  {
+    "date": "2026-11-14",
+    "direction": "Bullish divergence",
+    "score": 35,
+    "spy_change_pct": -0.7,
+    "benchmark_call_share": 0.559,
+    "benchmark_call_premium": 282259891.0,
+    "benchmark_put_premium": 222640534.0
   }
 ]
