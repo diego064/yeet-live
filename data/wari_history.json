@@ -25,5 +25,14 @@
     "benchmark_call_share": 0.559,
     "benchmark_call_premium": 282259891.0,
     "benchmark_put_premium": 222640534.0
+  },
+  {
+    "date": "2026-11-16",
+    "direction": "No read",
+    "score": null,
+    "spy_change_pct": -1.27,
+    "benchmark_call_share": null,
+    "benchmark_call_premium": 0,
+    "benchmark_put_premium": 0
   }
 ]
