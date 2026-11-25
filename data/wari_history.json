@@ -79,5 +79,14 @@
     "benchmark_call_share": 0.419,
     "benchmark_call_premium": 443293902.0,
     "benchmark_put_premium": 614491405.0
+  },
+  {
+    "date": "2026-11-25",
+    "direction": "Agreeing",
+    "score": 0,
+    "spy_change_pct": -0.0,
+    "benchmark_call_share": 0.98,
+    "benchmark_call_premium": 5768022659.0,
+    "benchmark_put_premium": 119355585.0
   }
 ]
